@@ -42,7 +42,7 @@ class PostsController < ApplicationController
   def update_row
     @post = Post.find(params.fetch("id_to_modify"))
 
-    @post.user_id = params.fetch("user_id")
+    
     @post.title = params.fetch("title")
     @post.content = params.fetch("content")
 
