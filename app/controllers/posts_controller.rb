@@ -1,84 +1,68 @@
 class PostsController < ApplicationController
-  before_action :current_user_must_be_post_user, :only => [:edit_form, :update_row, :destroy_row]
+  before_action :current_user_must_be_post_user, only: %i[edit update destroy]
 
-  def current_user_must_be_post_user
-    post = Post.find(params["id_to_display"] || params["prefill_with_id"] || params["id_to_modify"] || params["id_to_remove"])
-
-    unless current_user == post.user
-      redirect_to :back, :alert => "You are not authorized for that."
-    end
-  end
+  before_action :set_post, only: %i[show edit update destroy]
 
   def index
     @q = Post.ransack(params[:q])
-    @posts = @q.result(:distinct => true).includes(:user).page(params[:page]).per(10)
-
-    render("post_templates/index.html.erb")
+    @posts = @q.result(distinct: true).includes(:user).page(params[:page]).per(10)
   end
 
-  def show
-    @post = Post.find(params.fetch("id_to_display"))
+  def show; end
 
-    render("post_templates/show.html.erb")
-  end
-
-  def new_form
+  def new
     @post = Post.new
-
-    render("post_templates/new_form.html.erb")
   end
 
-  def create_row
-    @post = Post.new
+  def edit; end
 
-    @post.user_id = params.fetch("user_id")
-    @post.title = params.fetch("title")
-    @post.content = params.fetch("content")
+  def create
+    @post = Post.new(post_params)
 
-    if @post.valid?
-      @post.save
-
-      redirect_back(:fallback_location => "/posts", :notice => "Post created successfully.")
+    if @post.save
+      message = "Post was successfully created."
+      if Rails.application.routes.recognize_path(request.referer)[:controller] != Rails.application.routes.recognize_path(request.path)[:controller]
+        redirect_back fallback_location: request.referer, notice: message
+      else
+        redirect_to @post, notice: message
+      end
     else
-      render("post_templates/new_form_with_errors.html.erb")
+      render :new
     end
   end
 
-  def edit_form
-    @post = Post.find(params.fetch("prefill_with_id"))
-
-    render("post_templates/edit_form.html.erb")
-  end
-
-  def update_row
-    @post = Post.find(params.fetch("id_to_modify"))
-
-    
-    @post.title = params.fetch("title")
-    @post.content = params.fetch("content")
-
-    if @post.valid?
-      @post.save
-
-      redirect_to("/posts/#{@post.id}", :notice => "Post updated successfully.")
+  def update
+    if @post.update(post_params)
+      redirect_to @post, notice: "Post was successfully updated."
     else
-      render("post_templates/edit_form_with_errors.html.erb")
+      render :edit
     end
   end
 
-  def destroy_row_from_user
-    @post = Post.find(params.fetch("id_to_remove"))
-
+  def destroy
     @post.destroy
-
-    redirect_to("/users/#{@post.user_id}", notice: "Post deleted successfully.")
+    message = "Post was successfully deleted."
+    if Rails.application.routes.recognize_path(request.referer)[:controller] != Rails.application.routes.recognize_path(request.path)[:controller]
+      redirect_back fallback_location: request.referer, notice: message
+    else
+      redirect_to posts_url, notice: message
+    end
   end
 
-  def destroy_row
-    @post = Post.find(params.fetch("id_to_remove"))
+  private
 
-    @post.destroy
+  def current_user_must_be_post_user
+    set_post
+    unless current_user == @post.user
+      redirect_back fallback_location: root_path, alert: "You are not authorized for that."
+    end
+  end
 
-    redirect_to("/posts", :notice => "Post deleted successfully.")
+  def set_post
+    @post = Post.find(params[:id])
+  end
+
+  def post_params
+    params.require(:post).permit(:user_id, :title, :content)
   end
 end
