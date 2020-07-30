@@ -8,5 +8,4 @@ class Post < ApplicationRecord
   # Validations
 
   # Scopes
-
 end
